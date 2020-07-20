@@ -777,7 +777,7 @@ void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 	enum snd_jack_types jack_type;
 
 	if (mbhc->deinit_in_progress) {
-		pr_info("%s: mbhc deinit in progess: ignore report\n", __func__);
+		pr_info("%s: mbhc deinit in progess: ignore report\n");
 		return;
 	}
 
@@ -982,8 +982,6 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			jack_type = SND_JACK_HEADSET;
 			break;
 		case MBHC_PLUG_TYPE_HIGH_HPH:
-			if (mbhc->mbhc_detection_logic == WCD_DETECTION_ADC)
-			    WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_ISRC_EN, 0);
 			mbhc->is_extn_cable = false;
 			jack_type = SND_JACK_LINEOUT;
 			break;
@@ -1354,6 +1352,9 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	 * by an external source
 	 */
 	if (mbhc->mbhc_cfg->enable_usbc_analog) {
+		mbhc->hphl_swh = 0;
+		mbhc->gnd_swh = 0;
+
 		if (mbhc->mbhc_cb->hph_pull_up_control_v2)
 			mbhc->mbhc_cb->hph_pull_up_control_v2(codec,
 							      HS_PULLUP_I_OFF);
