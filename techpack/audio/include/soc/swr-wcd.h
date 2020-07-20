@@ -26,7 +26,6 @@ enum {
 	SWR_CLK_FREQ,
 	SWR_DEVICE_SSR_DOWN,
 	SWR_DEVICE_SSR_UP,
-	SWR_REGISTER_WAKE_IRQ,
 };
 
 struct swr_mstr_port {
