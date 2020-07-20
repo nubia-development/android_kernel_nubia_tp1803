@@ -10,7 +10,7 @@
 		compatible = "himax,hxcommon";
 		reg = <0x48>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <122 0x2008>;
+		interrupts = <122 0x02>;
 		himax,panel-coords = <0 1080 0 2160>;
 		himax,display-coords = <0 1080 0 2160>;
 		himax,rst-gpio = <&tlmm 54 0x00>;
@@ -18,6 +18,13 @@
 		report_type = <1>;
 	};
 
+	/* Novatek device tree node */
+	novatek@62 {
+		compatible = "novatek,NVT-ts";
+		reg = <0x62>;
+		status = "ok";
+		novatek,irq-gpio = <&tlmm 122 0x2001>;
+	};
 };
 
 
