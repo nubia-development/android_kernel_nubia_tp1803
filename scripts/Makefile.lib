@@ -179,12 +179,14 @@ DTC_INCLUDE    := $(srctree)/scripts/dtc/include-prefixes
 dtc_cpp_flags  = -Wp,-MD,$(depfile).pre.tmp -nostdinc                    \
 		 $(addprefix -I,$(DTC_INCLUDE))                          \
 		 -undef -D__DTS__
- 
+
+ifeq ($(CONFIG_MACH_NUBIA_TP1803),y) 
 #nubia: Set nubia overwrite dtsi file
-dtc_cpp_flags += -DNUBIA_OVERWRITE_DTSI_FILE=\"../nubia/$(TARGET_PRODUCT)/head.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_DTSI_FILE=\"../nubia/TP1803/head.dtsi\"
 
 #ZTEMT: fengxun set camera overwrite dtsi file
-dtc_cpp_flags += -DNUBIA_CAMERA_OVERWRITE_DTSI_FILE=\"../nubia/$(TARGET_PRODUCT)/camera.dtsi\"
+dtc_cpp_flags += -DNUBIA_CAMERA_OVERWRITE_DTSI_FILE=\"../nubia/TP1803/camera.dtsi\"
+endif
 
 # Finds the multi-part object the current object will be linked into
 modname-multi = $(sort $(foreach m,$(multi-used),\
