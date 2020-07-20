@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,8 +134,6 @@ struct tx_macro_priv {
 	bool dec_active[NUM_DECIMATORS];
 	int tx_mclk_users;
 	int swr_clk_users;
-	bool dapm_mclk_enable;
-	bool reset_swr;
 	struct clk *tx_core_clk;
 	struct clk *tx_npl_clk;
 	struct mutex mclk_lock;
@@ -208,7 +206,7 @@ static int tx_macro_mclk_enable(struct tx_macro_priv *tx_priv,
 			ret = bolero_request_clock(tx_priv->dev,
 					TX_MACRO, MCLK_MUX0, true);
 			if (ret < 0) {
-				dev_err_ratelimited(tx_priv->dev,
+				dev_err(tx_priv->dev,
 					"%s: request clock enable failed\n",
 					__func__);
 				goto exit;
@@ -267,14 +265,9 @@ static int tx_macro_mclk_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		ret = tx_macro_mclk_enable(tx_priv, 1);
-		if (ret)
-			tx_priv->dapm_mclk_enable = false;
-		else
-			tx_priv->dapm_mclk_enable = true;
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (tx_priv->dapm_mclk_enable)
-			ret = tx_macro_mclk_enable(tx_priv, 0);
+		ret = tx_macro_mclk_enable(tx_priv, 0);
 		break;
 	default:
 		dev_err(tx_priv->dev,
@@ -292,7 +285,7 @@ static int tx_macro_mclk_ctrl(struct device *dev, bool enable)
 	if (enable) {
 		ret = clk_prepare_enable(tx_priv->tx_core_clk);
 		if (ret < 0) {
-			dev_err_ratelimited(dev, "%s:tx mclk enable failed\n", __func__);
+			dev_err(dev, "%s:tx mclk enable failed\n", __func__);
 			goto exit;
 		}
 		ret = clk_prepare_enable(tx_priv->tx_npl_clk);
@@ -324,38 +317,18 @@ static int tx_macro_event_handler(struct snd_soc_codec *codec, u16 event,
 	case BOLERO_MACRO_EVT_SSR_DOWN:
 		swrm_wcd_notify(
 			tx_priv->swr_ctrl_data[0].tx_swr_pdev,
-			SWR_DEVICE_DOWN, NULL);
+			SWR_DEVICE_SSR_DOWN, NULL);
 		swrm_wcd_notify(
 			tx_priv->swr_ctrl_data[0].tx_swr_pdev,
-			SWR_DEVICE_SSR_DOWN, NULL);
+			SWR_DEVICE_DOWN, NULL);
 		break;
 	case BOLERO_MACRO_EVT_SSR_UP:
-		/* reset swr after ssr/pdr */
-		tx_priv->reset_swr = true;
 		swrm_wcd_notify(
 			tx_priv->swr_ctrl_data[0].tx_swr_pdev,
 			SWR_DEVICE_SSR_UP, NULL);
 		break;
 	}
 	return 0;
-}
-
-static int tx_macro_reg_wake_irq(struct snd_soc_codec *codec,
-				 u32 data)
-{
-	struct device *tx_dev = NULL;
-	struct tx_macro_priv *tx_priv = NULL;
-	u32 ipc_wakeup = data;
-	int ret = 0;
-
-	if (!tx_macro_get_data(codec, &tx_dev, &tx_priv, __func__))
-		return -EINVAL;
-
-	ret = swrm_wcd_notify(
-		tx_priv->swr_ctrl_data[0].tx_swr_pdev,
-		SWR_REGISTER_WAKE_IRQ, &ipc_wakeup);
-
-	return ret;
 }
 
 static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
@@ -1411,23 +1384,14 @@ static int tx_macro_swrm_clock(void *handle, bool enable)
 		if (tx_priv->swr_clk_users == 0) {
 			ret = tx_macro_mclk_enable(tx_priv, 1);
 			if (ret < 0) {
-				dev_err_ratelimited(tx_priv->dev,
+				dev_err(tx_priv->dev,
 					"%s: request clock enable failed\n",
 					__func__);
 				goto exit;
 			}
-			if (tx_priv->reset_swr)
-				regmap_update_bits(regmap,
-					BOLERO_CDC_TX_CLK_RST_CTRL_SWR_CONTROL,
-					0x02, 0x02);
 			regmap_update_bits(regmap,
 				BOLERO_CDC_TX_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x01);
-			if (tx_priv->reset_swr)
-				regmap_update_bits(regmap,
-					BOLERO_CDC_TX_CLK_RST_CTRL_SWR_CONTROL,
-					0x02, 0x00);
-			tx_priv->reset_swr = false;
 			regmap_update_bits(regmap,
 				BOLERO_CDC_TX_CLK_RST_CTRL_SWR_CONTROL,
 				0x1C, 0x0C);
@@ -1561,14 +1525,14 @@ static int tx_macro_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_ADC1");
 	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_ADC2");
 	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_ADC3");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC0");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC1");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC2");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC3");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC4");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC5");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC6");
-	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_DMIC7");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC0");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC5");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC6");
+	snd_soc_dapm_ignore_suspend(dapm, "TX SWR_MIC7");
 	snd_soc_dapm_sync(dapm);
 
 	for (i = 0; i < NUM_DECIMATORS; i++) {
@@ -1719,7 +1683,6 @@ static void tx_macro_init_ops(struct macro_ops *ops,
 	ops->num_dais = ARRAY_SIZE(tx_macro_dai);
 	ops->mclk_fn = tx_macro_mclk_ctrl;
 	ops->event_handler = tx_macro_event_handler;
-	ops->reg_wake_irq = tx_macro_reg_wake_irq;
 }
 
 static int tx_macro_probe(struct platform_device *pdev)
@@ -1773,7 +1736,7 @@ static int tx_macro_probe(struct platform_device *pdev)
 		sample_rate, tx_priv) == TX_MACRO_DMIC_SAMPLE_RATE_UNDEFINED)
 			return -EINVAL;
 	}
-	tx_priv->reset_swr = true;
+
 	INIT_WORK(&tx_priv->tx_macro_add_child_devices_work,
 		  tx_macro_add_child_devices);
 	tx_priv->swr_plat_data.handle = (void *) tx_priv;

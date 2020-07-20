@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,6 @@
 #include <sound/pcm_params.h>
 #include <dsp/apr_audio-v2.h>
 #include <dsp/q6afe-v2.h>
-#include <dsp/sp_params.h>
 #include <dsp/q6core.h>
 #include "msm-dai-q6-v2.h"
 #include "codecs/core.h"
@@ -35,8 +34,6 @@
 #define MSM_DAI_QUAT_AUXPCM_DT_DEV_ID 4
 #define MSM_DAI_QUIN_AUXPCM_DT_DEV_ID 5
 
-#define MSM_DAI_TWS_CHANNEL_MODE_ONE 1
-#define MSM_DAI_TWS_CHANNEL_MODE_TWO 2
 
 #define spdif_clock_value(rate) (2*rate*32*2)
 #define CHANNEL_STATUS_SIZE 24
@@ -2824,7 +2821,7 @@ static int msm_dai_q6_afe_enc_cfg_get(struct snd_kcontrol *kcontrol,
 		case ENC_FMT_AAC_V2:
 			memcpy(ucontrol->value.bytes.data + format_size,
 				&dai_data->enc_config.data,
-				sizeof(struct asm_aac_enc_cfg_t));
+				sizeof(struct asm_aac_enc_cfg_v2_t));
 			break;
 		case ENC_FMT_APTX:
 			memcpy(ucontrol->value.bytes.data + format_size,
@@ -2887,7 +2884,7 @@ static int msm_dai_q6_afe_enc_cfg_put(struct snd_kcontrol *kcontrol,
 		case ENC_FMT_AAC_V2:
 			memcpy(&dai_data->enc_config.data,
 				ucontrol->value.bytes.data + format_size,
-				sizeof(struct asm_aac_enc_cfg_t));
+				sizeof(struct asm_aac_enc_cfg_v2_t));
 			break;
 		case ENC_FMT_APTX:
 			memcpy(&dai_data->enc_config.data,
@@ -2939,12 +2936,6 @@ static const struct soc_enum afe_bit_format_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, afe_bit_format_text),
 };
 
-static const char *const tws_chs_mode_text[] = {"Zero", "One", "Two"};
-
-static const struct soc_enum tws_chs_mode_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tws_chs_mode_text), tws_chs_mode_text),
-};
-
 static int msm_dai_q6_afe_input_channel_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -2971,61 +2962,6 @@ static int msm_dai_q6_afe_input_channel_put(struct snd_kcontrol *kcontrol,
 	}
 
 	return 0;
-}
-
-static int msm_dai_q6_tws_channel_mode_get(struct snd_kcontrol *kcontrol,
-			struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_dai *dai = kcontrol->private_data;
-	struct msm_dai_q6_dai_data *dai_data = NULL;
-
-	if (dai)
-		dai_data = dev_get_drvdata(dai->dev);
-
-	if (dai_data) {
-		ucontrol->value.integer.value[0] =
-				dai_data->enc_config.mono_mode;
-		pr_debug("%s:tws channel mode = %d\n",
-			 __func__, dai_data->enc_config.mono_mode);
-	}
-
-	return 0;
-}
-
-static int msm_dai_q6_tws_channel_mode_put(struct snd_kcontrol *kcontrol,
-			struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_dai *dai = kcontrol->private_data;
-	struct msm_dai_q6_dai_data *dai_data = NULL;
-	int ret = 0;
-
-	if (dai)
-		dai_data = dev_get_drvdata(dai->dev);
-
-	if (dai_data && (dai_data->enc_config.format == ENC_FMT_APTX)) {
-		if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-			ret = afe_set_tws_channel_mode(dai->id,
-					ucontrol->value.integer.value[0]);
-			if (ret < 0) {
-				pr_err("%s: channel mode setting failed for TWS\n",
-				__func__);
-				goto exit;
-			} else {
-				pr_debug("%s: updating tws channel mode : %d\n",
-				__func__, dai_data->enc_config.mono_mode);
-			}
-		}
-		if (ucontrol->value.integer.value[0] ==
-			MSM_DAI_TWS_CHANNEL_MODE_ONE ||
-			ucontrol->value.integer.value[0] ==
-			MSM_DAI_TWS_CHANNEL_MODE_TWO)
-			dai_data->enc_config.mono_mode =
-				ucontrol->value.integer.value[0];
-		else
-			return -EINVAL;
-	}
-exit:
-	return ret;
 }
 
 static int msm_dai_q6_afe_input_bit_format_get(
@@ -3221,9 +3157,6 @@ static const struct snd_kcontrol_new afe_enc_config_controls[] = {
 		       0, 0, 1, 0,
 		       msm_dai_q6_afe_scrambler_mode_get,
 		       msm_dai_q6_afe_scrambler_mode_put),
-	SOC_ENUM_EXT("TWS Channel Mode", tws_chs_mode_enum[0],
-		       msm_dai_q6_tws_channel_mode_get,
-		       msm_dai_q6_tws_channel_mode_put)
 };
 
 static int  msm_dai_q6_afe_dec_cfg_info(struct snd_kcontrol *kcontrol,
@@ -3506,9 +3439,6 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&afe_enc_config_controls[3],
 				 dai_data));
-		rc = snd_ctl_add(dai->component->card->snd_card,
-				 snd_ctl_new1(&afe_enc_config_controls[4],
-				 dai));
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(&avd_drift_config_controls[2],
 					dai));
@@ -7921,31 +7851,6 @@ static int msm_dai_q6_tdm_set_channel_map(struct snd_soc_dai *dai,
 	return rc;
 }
 
-static unsigned int tdm_param_set_slot_mask(u16 *slot_offset, int slot_width,
-						int slots_per_frame)
-{
-	unsigned int i = 0;
-	unsigned int slot_index = 0;
-	unsigned long slot_mask = 0;
-	unsigned int slot_width_bytes = slot_width / 8;
-
-	for (i = 0; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++) {
-		if (slot_offset[i] != AFE_SLOT_MAPPING_OFFSET_INVALID) {
-			slot_index = slot_offset[i] / slot_width_bytes;
-			if (slot_index < slots_per_frame)
-				set_bit(slot_index, &slot_mask);
-			else {
-				pr_err("%s: invalid slot map setting\n",
-				       __func__);
-				return 0;
-			}
-		} else
-			break;
-	}
-
-	return slot_mask;
-}
-
 static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
@@ -8034,9 +7939,7 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 	 */
 	tdm->nslots_per_frame = tdm_group->nslots_per_frame;
 	tdm->slot_width = tdm_group->slot_width;
-	tdm->slot_mask = tdm_param_set_slot_mask(slot_mapping->offset,
-				tdm_group->slot_width,
-				tdm_group->nslots_per_frame);
+	tdm->slot_mask = tdm_group->slot_mask;
 
 	pr_debug("%s: TDM:\n"
 		"num_channels=%d sample_rate=%d bit_width=%d\n"
@@ -10470,31 +10373,12 @@ static void msm_dai_q6_cdc_dma_shutdown(struct snd_pcm_substream *substream,
 		clear_bit(STATUS_PORT_STARTED, dai_data->hwfree_status);
 }
 
-/* all ports with same WSA requirement can use this digital mute API */
-static int msm_dai_q6_spk_digital_mute(struct snd_soc_dai *dai,
-				       int mute)
-{
-	int port_id = dai->id;
-
-	if (mute)
-		afe_get_sp_xt_logging_data(port_id);
-
-	return 0;
-}
 
 static struct snd_soc_dai_ops msm_dai_q6_cdc_dma_ops = {
 	.prepare          = msm_dai_q6_cdc_dma_prepare,
 	.hw_params        = msm_dai_q6_cdc_dma_hw_params,
 	.shutdown         = msm_dai_q6_cdc_dma_shutdown,
 	.set_channel_map = msm_dai_q6_cdc_dma_set_channel_map,
-};
-
-static struct snd_soc_dai_ops msm_dai_q6_cdc_wsa_dma_ops = {
-	.prepare          = msm_dai_q6_cdc_dma_prepare,
-	.hw_params        = msm_dai_q6_cdc_dma_hw_params,
-	.shutdown         = msm_dai_q6_cdc_dma_shutdown,
-	.set_channel_map = msm_dai_q6_cdc_dma_set_channel_map,
-	.digital_mute = msm_dai_q6_spk_digital_mute,
 };
 
 static struct snd_soc_dai_driver msm_dai_q6_cdc_dma_dai[] = {
@@ -10519,7 +10403,7 @@ static struct snd_soc_dai_driver msm_dai_q6_cdc_dma_dai[] = {
 			.rate_max = 384000,
 		},
 		.name = "WSA_CDC_DMA_RX_0",
-		.ops = &msm_dai_q6_cdc_wsa_dma_ops,
+		.ops = &msm_dai_q6_cdc_dma_ops,
 		.id = AFE_PORT_ID_WSA_CODEC_DMA_RX_0,
 		.probe = msm_dai_q6_dai_cdc_dma_probe,
 		.remove = msm_dai_q6_dai_cdc_dma_remove,
@@ -10571,7 +10455,7 @@ static struct snd_soc_dai_driver msm_dai_q6_cdc_dma_dai[] = {
 			.rate_max = 384000,
 		},
 		.name = "WSA_CDC_DMA_RX_1",
-		.ops = &msm_dai_q6_cdc_wsa_dma_ops,
+		.ops = &msm_dai_q6_cdc_dma_ops,
 		.id = AFE_PORT_ID_WSA_CODEC_DMA_RX_1,
 		.probe = msm_dai_q6_dai_cdc_dma_probe,
 		.remove = msm_dai_q6_dai_cdc_dma_remove,
