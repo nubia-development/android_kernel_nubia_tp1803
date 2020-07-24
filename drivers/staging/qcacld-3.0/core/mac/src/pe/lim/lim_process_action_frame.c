@@ -1310,8 +1310,7 @@ __lim_process_radio_measure_request(tpAniSirGlobal pMac, uint8_t *pRxPacketInfo,
 			 HIGH_SEQ_NUM_OFFSET) |
 			pHdr->seqControl.seqNumLo);
 	if (curr_seq_num == pMac->rrm.rrmPEContext.prev_rrm_report_seq_num &&
-	    (pMac->rrm.rrmPEContext.pCurrentReq[DEFAULT_RRM_IDX] ||
-	     pMac->rrm.rrmPEContext.pCurrentReq[DEFAULT_RRM_IDX + 1])) {
+	    pMac->rrm.rrmPEContext.pCurrentReq) {
 		pe_err("rrm report req frame, seq num: %d is already in progress, drop it",
 			curr_seq_num);
 		return;
