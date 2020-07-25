@@ -12,7 +12,7 @@
  */
 
 #include "pm8150.dtsi"
-#include "pm8150b.dtsi"
+#include NUBIA_OVERWRITE_PM8150B_DTSI
 #include "pm8150l.dtsi"
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
