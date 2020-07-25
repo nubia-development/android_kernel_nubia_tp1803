@@ -182,10 +182,16 @@ dtc_cpp_flags  = -Wp,-MD,$(depfile).pre.tmp -nostdinc                    \
 
 ifeq ($(CONFIG_MACH_NUBIA_TP1803),y) 
 #nubia: Set nubia overwrite dtsi file
-dtc_cpp_flags += -DNUBIA_OVERWRITE_DTSI_FILE=\"../nubia/TP1803/head.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_DTSI_FILE=\"../../../nubia/TP1803/head.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_SM8150_DTSI=\"nubia/sm8150_tp1803/sm8150.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_SM8150_MTP_DTSI=\"nubia/sm8150_tp1803/sm8150-mtp.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_PM8150B_DTSI=\"nubia/sm8150_tp1803/pm8150b.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_SM8150_AUDIO_OVERLAY_DTSI=\"nubia/sm8150_tp1803/sm8150-audio-overlay.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_AUDIO_LPASS_DTSI=\"nubia/sm8150_tp1803/msm-audio-lpass.dtsi\"
+dtc_cpp_flags += -DNUBIA_OVERWRITE_SM8150_QRD_DTSI=\"nubia/sm8150_tp1803/sm8150-qrd.dtsi\"
 
 #ZTEMT: fengxun set camera overwrite dtsi file
-dtc_cpp_flags += -DNUBIA_CAMERA_OVERWRITE_DTSI_FILE=\"../nubia/TP1803/camera.dtsi\"
+dtc_cpp_flags += -DNUBIA_CAMERA_OVERWRITE_DTSI_FILE=\"../../../nubia/TP1803/camera.dtsi\"
 endif
 
 # Finds the multi-part object the current object will be linked into
